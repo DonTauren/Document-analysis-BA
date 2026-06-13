@@ -1,2 +1,2 @@
-# Document-analysis-bachelor
+# Document-analysis-BA
 prototype for bachelor thesis
