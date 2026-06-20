@@ -5,6 +5,8 @@ from uuid import uuid4
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from app.file_validation import detect_file_type
+
 
 app = FastAPI(
     title="Credit Document Verification API",
@@ -79,10 +81,28 @@ async def upload_document(
             status_code=413,
             detail="The uploaded file exceeds the 10 MB limit.",
         )
+    
+    detected_type = detect_file_type(content)
+
+    if detected_type is None:
+        await file.close()
+
+        raise HTTPException(
+            status_code=415, 
+            detail=("The upload content is not a supported PDF, JPG or PNG file.")
+        )
+    
+    if detected_type != file.content_type: 
+        await file.close()
+
+        raise HTTPException( 
+            status_code=415, 
+            detail=( "The declared file type does not match " "the actual file content." ) 
+        )
 
     document_id = str(uuid4())
-    extension = ALLOWED_CONTENT_TYPES[file.content_type]
-    stored_filename = f"{document_id}{extension}"
+    
+    stored_filename = f"{document_id}{detected_type.extension}"
     destination = UPLOAD_DIRECTORY / stored_filename
 
     try:
@@ -100,6 +120,6 @@ async def upload_document(
         status="uploaded",
         original_filename=file.filename or "unknown",
         stored_filename=stored_filename,
-        content_type=file.content_type,
+        content_type=detected_type.content_type,
         file_size_bytes=len(content),
     )
