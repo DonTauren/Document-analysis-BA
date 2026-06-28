@@ -5,7 +5,8 @@ from uuid import uuid4
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app.file_validation import detect_file_type
+from app.services.file_validation import detect_file_type
+from app.services.text_extraction import extract_document_text, extract_text_from_image, extract_text_from_pdf, TextExtractionError, NoTextFoundError
 
 
 app = FastAPI(
@@ -26,6 +27,13 @@ ALLOWED_CONTENT_TYPES = {
     "image/png": ".png",
 }
 
+CONTENT_TYPES_BY_EXTENSION = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+}
+
 
 # defines the structure of a successful upload response
 class UploadResponse(BaseModel): 
@@ -35,6 +43,12 @@ class UploadResponse(BaseModel):
     stored_filename: str
     content_type: str
     file_size_bytes: int
+
+class TextExtractionResponse(BaseModel):
+    document_id: str
+    status: str
+    text: str
+    character_count: int
 
 
 @app.get("/health")
@@ -92,7 +106,7 @@ async def upload_document(
             detail=("The upload content is not a supported PDF, JPG or PNG file.")
         )
     
-    if detected_type != file.content_type: 
+    if detected_type.content_type != file.content_type: 
         await file.close()
 
         raise HTTPException( 
@@ -122,4 +136,60 @@ async def upload_document(
         stored_filename=stored_filename,
         content_type=detected_type.content_type,
         file_size_bytes=len(content),
+    )
+
+
+@app.post(
+    "/documents/{document_id}/extract",
+    response_model=TextExtractionResponse,
+)
+async def extract_document(
+    document_id: str,
+) -> TextExtractionResponse:
+    matches = list(UPLOAD_DIRECTORY.glob(f"{document_id}.*"))
+
+    if not matches:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found.",
+        )
+
+    if len(matches) > 1:
+        raise HTTPException(
+            status_code=500,
+            detail="Multiple stored documents use this document ID.",
+        )
+
+    file_path = matches[0]
+    content_type = CONTENT_TYPES_BY_EXTENSION.get(
+        file_path.suffix.lower()
+    )
+
+    if content_type is None:
+        raise HTTPException(
+            status_code=415,
+            detail="The stored document type is not supported.",
+        )
+
+    try:
+        text = extract_document_text(
+            file_path=file_path,
+            content_type=content_type,
+        )
+    except NoTextFoundError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+    except TextExtractionError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=str(error),
+        ) from error
+
+    return TextExtractionResponse(
+        document_id=document_id,
+        status="extracted",
+        text=text,
+        character_count=len(text),
     )
