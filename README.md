@@ -2,7 +2,9 @@
 prototype for bachelor thesis
 
 ## activate virtual environment
-``` .\.venv\Scripts\activate ```
+```bash 
+.\.venv\Scripts\activate 
+```
 
 ## install specified dependencies from requirements.txt if neccessary
 ```bash 
