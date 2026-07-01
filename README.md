@@ -5,7 +5,11 @@ prototype for bachelor thesis
 ``` .\.venv\Scripts\activate ```
 
 ## install specified dependencies from requirements.txt if neccessary
-``` pip install -r requirements.txt ```
+```bash 
+pip install -r requirements.txt 
+```
 
 ## Start the program
-``` python -m uvicorn app.main:app --reload ```
+```bash
+ python -m uvicorn app.main:app --reload 
+ ```
