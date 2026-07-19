@@ -1,8 +1,13 @@
 from pathlib import Path
 
+import os
 import pymupdf
 import pytesseract
 from PIL import Image, UnidentifiedImageError
+from typing import Literal
+from pydantic import BaseModel
+
+TESSERACT_LANGUAGES = os.getenv("TESSERACT_LANGUAGES", "deu+eng")
 
 class TextExtractionError(Exception):
     """Raised when text cannot be extracted from a document."""
@@ -11,37 +16,110 @@ class TextExtractionError(Exception):
 class NoTextFoundError(TextExtractionError):
     """Raised when extraction succeeds but no usable text is found."""
 
-def extract_text_from_pdf(file_path: Path) -> str:
+class ExtractionResult(BaseModel):
+    text: str
+    method: Literal["embedded_text", "ocr", "hybrid"]
+    page_count: int
+
+def _ocr_image(image: Image.Image) -> str:
+    return pytesseract.image_to_string(
+        image,
+        lang=TESSERACT_LANGUAGES
+    ).strip
+
+def _ocr_pdf_page(page: pymupdf.Page) -> str:
+    pixmap = page.get_pixmap(
+        matrix=pymupdf.Matrix(2,2),
+        alpha=False
+    )
+
+    image = Image.frombytes(
+        "RGB",
+        (pixmap.width, pixmap.height),
+        pixmap.samples
+    )
+
     try:
+        return _ocr_image(image)
+    finally: 
+        image.close()
+
+def extract_text_from_pdf(file_path: Path) -> ExtractionResult:
+    page_texts: list[str] = []
+
+    used_embedded_text = False
+    used_ocr = False
+
+    try: 
         with pymupdf.open(file_path) as document:
-            pages = [
-                page.get_text("text", sort=True).strip()
-                for page in document
-            ]
-    except (pymupdf.FileDataError, RuntimeError) as error:
+            page_count = len(document)
+
+            for page_number, page in enumerate(document, start=1): 
+                text = page.get_text(
+                    "text", 
+                    sort=True
+                ).strip()
+
+                if text:
+                    used_embedded_text = True
+                else:
+                    text = _ocr_pdf_page(page)
+
+                    if text:
+                        used_ocr = True
+                
+                if text: 
+                    page_texts.append(
+                        f"--- Page {page_number} ---\n{text}"
+                    )
+    
+    except pymupdf.FileDataError as error:
+        raise TextExtractionError(
+            "The PDF is invalid or corrupted"
+        ) from error
+    except pytesseract.TesseractNotFoundError as error:
+        raise TextExtractionError(
+            "Tesseract OCR is not installed or cannot be found"
+        )
+    except pytesseract.TesseractError as error:
+        raise TextExtractionError(
+            "OCR could not process the PDF."
+        ) from error
+    except (RuntimeError, OSError) as error:
         raise TextExtractionError(
             "The PDF could not be opened or processed."
         ) from error
-
-    text = "\n\n".join(page for page in pages if page).strip()
+    
+    text = "\n\n".join(page_texts).strip()
 
     if not text:
         raise NoTextFoundError(
-            "No embedded text was found in the PDF."
+            "No text could be extracted from the PDF."
         )
+    
+    if used_embedded_text and used_ocr:
+        method: Literal[
+            "embedded_text",
+            "ocr",
+            "hybrid"
+        ] = "hybrid"
+    elif used_ocr: 
+        method = "ocr"
+    else: 
+        method = "embedded_text"
 
-    return text
+    return ExtractionResult(
+        text=text, 
+        method=method,
+        page_count=page_count
+    )
 
-
-def extract_text_from_image(file_path: Path) -> str:
+def extract_text_from_image(file_path: Path) -> ExtractionResult:
     try:
         with Image.open(file_path) as image:
             image.load()
 
-            text = pytesseract.image_to_string(
-                image,
-                lang="eng",
-            ).strip()
+            text = _ocr_image(image)
 
     except UnidentifiedImageError as error:
         raise TextExtractionError(
@@ -65,13 +143,17 @@ def extract_text_from_image(file_path: Path) -> str:
             "No text was detected in the image."
         )
 
-    return text
+    return ExtractionResult(
+        text=text,
+        method="ocr",
+        page_count=1
+    )
 
 
 def extract_document_text(
     file_path: Path,
     content_type: str,
-) -> str:
+) -> ExtractionResult:
     if content_type == "application/pdf":
         return extract_text_from_pdf(file_path)
 

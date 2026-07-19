@@ -1,12 +1,13 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from app.services.file_validation import detect_file_type
-from app.services.text_extraction import extract_document_text, extract_text_from_image, extract_text_from_pdf, TextExtractionError, NoTextFoundError
+from app.services.text_extraction import extract_document_text, TextExtractionError, NoTextFoundError
 
 
 app = FastAPI(
@@ -49,6 +50,12 @@ class TextExtractionResponse(BaseModel):
     status: str
     text: str
     character_count: int
+    extraction_method: Literal[
+        "embedded_text", 
+        "ocr",
+        "hybrid"
+    ]
+    page_count: int
 
 
 @app.get("/health")
@@ -115,12 +122,14 @@ async def upload_document(
         )
 
     document_id = str(uuid4())
-    
     stored_filename = f"{document_id}{detected_type.extension}"
     destination = UPLOAD_DIRECTORY / stored_filename
 
     try:
-        destination.write_bytes(content)
+        await run_in_threadpool(
+            destination.write_bytes,
+            content
+        )
     except OSError as error:
         raise HTTPException(
             status_code=500,
@@ -146,7 +155,22 @@ async def upload_document(
 async def extract_document(
     document_id: str,
 ) -> TextExtractionResponse:
-    matches = list(UPLOAD_DIRECTORY.glob(f"{document_id}.*"))
+    try:
+        uuid4(document_id)
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail="The document ID is invalid"
+        )
+    
+    matches = [
+        path for extension in {".pdf", ".jpg", ".png"}
+        if (path := (
+            UPLOAD_DIRECTORY 
+            / f"{document_id}{extension}"
+        )).is_file()
+    ]
 
     if not matches:
         raise HTTPException(
@@ -172,9 +196,10 @@ async def extract_document(
         )
 
     try:
-        text = extract_document_text(
-            file_path=file_path,
-            content_type=content_type,
+        result = await run_in_threadpool(
+            extract_document_text,
+            file_path,
+            content_type
         )
     except NoTextFoundError as error:
         raise HTTPException(
@@ -190,6 +215,8 @@ async def extract_document(
     return TextExtractionResponse(
         document_id=document_id,
         status="extracted",
-        text=text,
-        character_count=len(text),
+        text=result.text,
+        character_count=len(result.text),
+        extraction_method=result.method,
+        page_count=result.page_count
     )
