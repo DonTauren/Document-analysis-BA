@@ -2,12 +2,19 @@ from pathlib import Path
 
 import os
 import pymupdf
-import pytesseract
+import numpy as np
+from paddleocr import PaddleOCR
 from PIL import Image, UnidentifiedImageError
 from typing import Literal
 from pydantic import BaseModel
 
-TESSERACT_LANGUAGES = os.getenv("TESSERACT_LANGUAGES", "deu+eng")
+OCR_ENGINE = PaddleOCR(
+    lang="de",
+    device="cpu",
+    use_doc_orientation_classify=False,
+    use_doc_unwarping=False,
+    use_textline_orientation=False,
+)
 
 class TextExtractionError(Exception):
     """Raised when text cannot be extracted from a document."""
@@ -22,26 +29,52 @@ class ExtractionResult(BaseModel):
     page_count: int
 
 def _ocr_image(image: Image.Image) -> str:
-    return pytesseract.image_to_string(
-        image,
-        lang=TESSERACT_LANGUAGES
-    ).strip
+    image_array = np.array(
+        image.convert("RGB")
+    )
+
+    try:
+        results = OCR_ENGINE.predict(image_array)
+
+    except Exception as error:
+        raise TextExtractionError(
+            "PaddleOCR could not process the image."
+        ) from error
+
+    detected_lines: list[str] = []
+
+    for result in results:
+        result_data = result.json["res"]
+
+        recognized_texts = result_data.get(
+            "rec_texts",
+            [],
+        )
+
+        for text in recognized_texts:
+            cleaned_text = text.strip()
+
+            if cleaned_text:
+                detected_lines.append(cleaned_text)
+
+    return "\n".join(detected_lines).strip()
+
 
 def _ocr_pdf_page(page: pymupdf.Page) -> str:
     pixmap = page.get_pixmap(
-        matrix=pymupdf.Matrix(2,2),
-        alpha=False
+        matrix=pymupdf.Matrix(2, 2),
+        alpha=False,
     )
 
     image = Image.frombytes(
         "RGB",
         (pixmap.width, pixmap.height),
-        pixmap.samples
+        pixmap.samples,
     )
 
     try:
         return _ocr_image(image)
-    finally: 
+    finally:
         image.close()
 
 def extract_text_from_pdf(file_path: Path) -> ExtractionResult:
@@ -77,13 +110,9 @@ def extract_text_from_pdf(file_path: Path) -> ExtractionResult:
         raise TextExtractionError(
             "The PDF is invalid or corrupted"
         ) from error
-    except pytesseract.TesseractNotFoundError as error:
+    except Exception as error:
         raise TextExtractionError(
-            "Tesseract OCR is not installed or cannot be found"
-        )
-    except pytesseract.TesseractError as error:
-        raise TextExtractionError(
-            "OCR could not process the PDF."
+            "PaddleOCR could not process the document."
         ) from error
     except (RuntimeError, OSError) as error:
         raise TextExtractionError(
@@ -125,13 +154,9 @@ def extract_text_from_image(file_path: Path) -> ExtractionResult:
         raise TextExtractionError(
             "The image could not be opened."
         ) from error
-    except pytesseract.TesseractNotFoundError as error:
+    except Exception as error:
         raise TextExtractionError(
-            "Tesseract OCR is not installed or cannot be found."
-        ) from error
-    except pytesseract.TesseractError as error:
-        raise TextExtractionError(
-            "Tesseract OCR could not process the image."
+            "PaddleOCR could not process the document."
         ) from error
     except OSError as error:
         raise TextExtractionError(

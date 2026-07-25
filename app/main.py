@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Annotated, Literal
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -156,7 +156,7 @@ async def extract_document(
     document_id: str,
 ) -> TextExtractionResponse:
     try:
-        uuid4(document_id)
+        UUID(document_id)
 
     except ValueError as error:
         raise HTTPException(
