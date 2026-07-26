@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Annotated, Literal
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -67,16 +67,16 @@ async def health_check() -> dict[str, str | int]:
 
 
 @app.post(
-    "/documents/upload",
-    response_model=UploadResponse,
-    status_code=201,
+    "/documents/process",
+    response_model=TextExtractionResponse,
+    status_code=200,
 )
-async def upload_document(
+async def process_document(
     file: Annotated[
         UploadFile,
         File(description="PDF, JPEG or PNG credit application document"),
     ],
-) -> UploadResponse:
+) -> TextExtractionResponse:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         await file.close()
 
@@ -118,7 +118,7 @@ async def upload_document(
 
         raise HTTPException( 
             status_code=415, 
-            detail=( "The declared file type does not match " "the actual file content." ) 
+            detail=("The declared file type does not match the actual file content.") 
         )
 
     document_id = str(uuid4())
@@ -130,87 +130,30 @@ async def upload_document(
             destination.write_bytes,
             content
         )
+        result = await run_in_threadpool(
+            extract_document_text,
+            destination, 
+            detected_type.content_type
+        )
+
+    except NoTextFoundError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error)
+        ) from error
+    except TextExtractionError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        ) from error
     except OSError as error:
         raise HTTPException(
             status_code=500,
             detail="The document could not be stored.",
         ) from error
+    
     finally:
         await file.close()
-
-    return UploadResponse(
-        document_id=document_id,
-        status="uploaded",
-        original_filename=file.filename or "unknown",
-        stored_filename=stored_filename,
-        content_type=detected_type.content_type,
-        file_size_bytes=len(content),
-    )
-
-
-@app.post(
-    "/documents/{document_id}/extract",
-    response_model=TextExtractionResponse,
-)
-async def extract_document(
-    document_id: str,
-) -> TextExtractionResponse:
-    try:
-        UUID(document_id)
-
-    except ValueError as error:
-        raise HTTPException(
-            status_code=422,
-            detail="The document ID is invalid"
-        )
-    
-    matches = [
-        path for extension in {".pdf", ".jpg", ".png"}
-        if (path := (
-            UPLOAD_DIRECTORY 
-            / f"{document_id}{extension}"
-        )).is_file()
-    ]
-
-    if not matches:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not found.",
-        )
-
-    if len(matches) > 1:
-        raise HTTPException(
-            status_code=500,
-            detail="Multiple stored documents use this document ID.",
-        )
-
-    file_path = matches[0]
-    content_type = CONTENT_TYPES_BY_EXTENSION.get(
-        file_path.suffix.lower()
-    )
-
-    if content_type is None:
-        raise HTTPException(
-            status_code=415,
-            detail="The stored document type is not supported.",
-        )
-
-    try:
-        result = await run_in_threadpool(
-            extract_document_text,
-            file_path,
-            content_type
-        )
-    except NoTextFoundError as error:
-        raise HTTPException(
-            status_code=422,
-            detail=str(error),
-        ) from error
-    except TextExtractionError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=str(error),
-        ) from error
 
     return TextExtractionResponse(
         document_id=document_id,

@@ -1,0 +1,56 @@
+[
+  {
+    "case_id": "01",
+    "filename": "credit_application_01_embedded.pdf",
+    "expected_extraction_method": "embedded_text",
+    "applicant": "Lukas Mayer"
+  },
+  {
+    "case_id": "02",
+    "filename": "credit_application_02_embedded.pdf",
+    "expected_extraction_method": "embedded_text",
+    "applicant": "Sofia Gruber"
+  },
+  {
+    "case_id": "03",
+    "filename": "credit_application_03_embedded.pdf",
+    "expected_extraction_method": "embedded_text",
+    "applicant": "Emir Yilmaz"
+  },
+  {
+    "case_id": "04",
+    "filename": "credit_application_04_scanned.pdf",
+    "expected_extraction_method": "ocr",
+    "applicant": "Katharina Müller"
+  },
+  {
+    "case_id": "05",
+    "filename": "credit_application_05_scanned.pdf",
+    "expected_extraction_method": "ocr",
+    "applicant": "David Novak"
+  },
+  {
+    "case_id": "06",
+    "filename": "credit_application_06_scanned.pdf",
+    "expected_extraction_method": "ocr",
+    "applicant": "Lejla Hasić"
+  },
+  {
+    "case_id": "07",
+    "filename": "credit_application_07_mixed.pdf",
+    "expected_extraction_method": "hybrid",
+    "applicant": "Tobias König"
+  },
+  {
+    "case_id": "08",
+    "filename": "credit_application_08_mixed.pdf",
+    "expected_extraction_method": "hybrid",
+    "applicant": "Elena Petrova"
+  },
+  {
+    "case_id": "09",
+    "filename": "credit_application_09_mixed.pdf",
+    "expected_extraction_method": "hybrid",
+    "applicant": "Markus Öztürk"
+  }
+]
