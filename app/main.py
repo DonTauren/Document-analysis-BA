@@ -30,29 +30,6 @@ ALLOWED_CONTENT_TYPES = {
     "image/png": ".png",
 }
 
-CONTENT_TYPES_BY_EXTENSION = {
-    ".pdf": "application/pdf",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-}
-
-
-# defines the structure of a successful upload response, for debugging purposes remaining
-class TextExtractionResponse(BaseModel):
-    document_id: str
-    status: str
-    text: str
-    character_count: int
-    extraction_method: Literal[
-        "embedded_text", 
-        "ocr",
-        "hybrid"
-    ]
-    page_count: int
-    extraction_time_seconds: float
-    total_time_seconds: float
-
 class DocumentProcessingResponse(BaseModel):
     document_id: str
     extraction_method: Literal[
@@ -169,6 +146,11 @@ async def process_document(
             status_code=422,
             detail=str(error)
         ) from error
+    except FieldExtractionError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
     except TextExtractionError as error:
         raise HTTPException(
             status_code=500,
@@ -187,7 +169,7 @@ async def process_document(
         document_id=document_id,
         extraction_method=text_result.method,
         page_count=text_result.page_count,
-        processing_time_seconds=round(extraction_duration, 3),
+        processing_time_seconds=round(total_duration, 3),
         fields=fields,
         raw_text=text_result.text
     )

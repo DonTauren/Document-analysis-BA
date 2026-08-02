@@ -2,20 +2,71 @@ from __future__ import annotations
 import re
 from decimal import Decimal, InvalidOperation
 from pydantic import BaseModel, field_serializer
+from typing import Final
 
 class FieldExtractionError(Exception): 
     """Raised when structured fields cannot be extracted."""
 
 class CreditApplicationFields(BaseModel):
+    # Applicant information
     full_name: str | None = None
+    date_of_birth: str | None = None
+    nationality: str | None = None
+    residential_address: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    marital_status: str | None = None
+    dependants: int | None = None
+
+    # Employment information
+    employment_status: str | None = None
+    employer: str | None = None
+    position: str | None = None
+    employment_since: str | None = None
+
+    # Income
     net_monthly_salary: Decimal | None = None
+    other_monthly_income: Decimal | None = None
+    total_monthly_income: Decimal | None = None
+
+    # Requested credit
     requested_loan_amount: Decimal | None = None
+    loan_purpose: str | None = None
+    requested_term: int | None = None
+    preferred_payment_date: str | None = None
+
+    # Monthly expenses
+    rent_and_utilities: Decimal | None = None
+    food_and_household: Decimal | None = None
+    transport_expenses: Decimal | None = None
+    insurance_expenses: Decimal | None = None
+    existing_loan_payment: Decimal | None = None
+    total_monthly_expenses: Decimal | None = None
+
+    # Bank account
     iban: str | None = None
+    bic: str | None = None
+    average_account_balance: Decimal | None = None
+
+    # Liabilities
+    outstanding_personal_loan: Decimal | None = None
     credit_card_balance: Decimal | None = None
+
+
 
     @field_serializer(
         "net_monthly_salary",
+        "other_monthly_income",
+        "total_monthly_income",
         "requested_loan_amount",
+        "rent_and_utilities",
+        "food_and_household",
+        "transport_expenses",
+        "insurance_expenses",
+        "existing_loan_payment",
+        "total_monthly_expenses",
+        "average_account_balance",
+        "outstanding_personal_loan",
         "credit_card_balance",
         when_used="json",
     )
@@ -24,6 +75,88 @@ class CreditApplicationFields(BaseModel):
         value: Decimal | None,
     ) -> str | None:
         return format_money_austrian(value)
+
+FIELD_LABELS: Final[dict[str, list[str]]] = {
+    "full_name": ["Full name"],
+    "date_of_birth": ["Date of birth"],
+    "nationality": ["Nationality"],
+    "residential_address": ["Residential address"],
+    "email": ["Email"],
+    "phone": ["Phone"],
+    "marital_status": ["Marital status"],
+    "dependants": ["Dependants", "Dependents"],
+
+    "employment_status": ["Employment status"],
+    "employer": ["Employer"],
+    "position": ["Position"],
+    "employment_since": ["Employment since"],
+
+    "net_monthly_salary": ["Net monthly salary"],
+    "other_monthly_income": ["Other monthly income"],
+    "total_monthly_income": ["Total monthly net income", "Total monthly income"],
+
+    "requested_loan_amount": ["Requested loan amount"],
+    "loan_purpose": ["Loan purpose"],
+    "requested_term": ["Requested term"],
+    "preferred_payment_date": ["Preferred payment date"],
+
+    "rent_and_utilities": ["Rent including utilities"],
+    "food_and_household": ["Food and household expenses", "Food and household"],
+    "transport_expenses": ["Transport expenses", "Transport"],
+    "insurance_expenses": ["Insurance expenses", "Insurance"],
+    "existing_loan_payment": ["Existing personal loan payment"],
+    "total_monthly_expenses": ["Total monthly expenses"],
+
+    "iban": ["IBAN"],
+    "bic": ["BIC / SWIFT", "BIC/SWIFT", "BIC"],
+    "average_account_balance": ["Average account balance (3 months)", "Average balance (3 months)"],
+
+    "outstanding_personal_loan": ["Existing personal loan - outstanding", "Existing personal loan outstanding"],
+    "credit_card_balance": ["Credit card balance"],
+}
+
+BOUNDARY_LABELS: Final[list[str]] = [
+    "1. Applicant Information",
+    "Applicant Information",
+    "2. Employment and Income",
+    "Employment and Income",
+    "3. Requested Credit",
+    "Requested Credit",
+    "4. Monthly Expenses and Existing Obligations",
+    "Monthly Expenses and Existing Obligations",
+    "5. Bank Account Information",
+    "Bank Account Information",
+    "6. Existing Liabilities",
+    "Existing Liabilities",
+    "7. Supporting Documents",
+    "Supporting Documents",
+    "7. Supporting Documents Submitted",
+    "Supporting Documents Submitted",
+    "8. Applicant Declaration",
+    "Applicant Declaration",
+    "CREDIT APPLICATION - FINANCIAL DETAILS",
+]
+
+MONEY_FIELDS: Final[set[str]] = {
+    "net_monthly_salary",
+    "other_monthly_income",
+    "total_monthly_income",
+    "requested_loan_amount",
+    "rent_and_utilities",
+    "food_and_household",
+    "transport_expenses",
+    "insurance_expenses",
+    "existing_loan_payment",
+    "total_monthly_expenses",
+    "average_account_balance",
+    "outstanding_personal_loan",
+    "credit_card_balance",
+}
+
+INTEGER_FIELDS: Final[set[str]] = {
+    "dependants",
+    "requested_term",
+}
 
 def format_money_austrian(
     value: Decimal | None,
@@ -42,7 +175,6 @@ def format_money_austrian(
     )
 
 def normalize_document_text(text: str) -> str:
-    # Remove page markers
     text = re.sub(
         r"---\s*Page\s+\d+\s*---",
         " ",
@@ -50,10 +182,22 @@ def normalize_document_text(text: str) -> str:
         flags=re.IGNORECASE,
     )
 
-    # Replace non-breaking spaces
+    text = re.sub(
+        (
+            r"Synthetic test document\s*-\s*"
+            r"all persons,\s*accounts and values are fictional"
+            r"\s*Page\s*\d+"
+        ),
+        " ",
+        text,
+        flags=re.IGNORECASE,
+    )
+
     text = text.replace("\u00a0", " ")
 
-    # Replace repeated whitespace and line breaks with one space.
+    text = text.replace("–", "-")
+    text = text.replace("—", "-")
+
     text = re.sub(
         r"\s+",
         " ",
@@ -62,45 +206,74 @@ def normalize_document_text(text: str) -> str:
 
     return text.strip()
 
-def extract_value_between_labels(
-    text: str,
-    start_label: str,
-    end_labels: list[str],
-) -> str | None:
+def build_label_lookup() -> dict[str, str | None]:
 
-    if not end_labels:
-        raise ValueError(
-            "At least one end label must be provided."
-        )
+    lookup: dict[str, str | None] = {}
 
-    escaped_end_labels = [
+    for field_name, labels in FIELD_LABELS.items():
+        for label in labels:
+            lookup[label.casefold()] = field_name
+
+    for label in BOUNDARY_LABELS:
+        lookup[label.casefold()] = None
+
+    return lookup
+
+def build_label_pattern(
+    label_lookup: dict[str, str | None],
+) -> re.Pattern[str]:
+    labels = sorted(
+        label_lookup.keys(),
+        key=len,
+        reverse=True,
+    )
+
+    alternatives = "|".join(
         re.escape(label)
-        for label in end_labels
-    ]
-
-    end_pattern = "|".join(
-        escaped_end_labels
+        for label in labels
     )
 
-    pattern = (
-        rf"{re.escape(start_label)}"
-        rf"\s+"
-        rf"(.*?)"
-        rf"(?=\s+(?:{end_pattern})|$)"
-    )
-
-    match = re.search(
-        pattern,
-        text,
+    return re.compile(
+        rf"(?<!\w)(?:{alternatives})(?!\w)",
         flags=re.IGNORECASE,
     )
 
-    if match is None:
-        return None
+def extract_raw_fields(
+    text: str,
+) -> dict[str, str]:
 
-    value = match.group(1).strip()
+    label_lookup = build_label_lookup()
+    label_pattern = build_label_pattern(label_lookup)
 
-    return value or None
+    matches = list(label_pattern.finditer(text))
+
+    extracted: dict[str, str] = {}
+
+    for index, match in enumerate(matches):
+        matched_label = match.group(0).casefold()
+
+        field_name = label_lookup.get(matched_label)
+
+        if field_name is None:
+            continue
+
+        value_start = match.end()
+
+        if index + 1 < len(matches):
+            value_end = matches[index + 1].start()
+        else:
+            value_end = len(text)
+
+        value = text[
+            value_start:value_end
+        ].strip()
+
+        value = value.strip(" :-|")
+
+        if value and field_name not in extracted:
+            extracted[field_name] = value
+
+    return extracted
 
 def parse_money(
     value: str | None
@@ -143,112 +316,170 @@ def parse_money(
     except InvalidOperation:
         return None
 
-def normalize_austrian_iban(
+def parse_integer(
     value: str | None,
-) -> str | None:
-    """
-    Normalize and validate an Austrian IBAN.
-
-    Austrian IBAN format:
-        AT followed by 18 digits
-
-    Example:
-        AT61 1904 3002 3457 3201
-
-    becomes:
-        AT611904300234573201
-    """
+) -> int | None:
 
     if value is None:
+        return None
+
+    match = re.search(
+        r"\d+",
+        value,
+    )
+
+    if match is None:
+        return None
+
+    return int(match.group(0))
+
+
+def normalize_iban(
+    value: str | None,
+) -> str | None:
+    if value is None:
+        return None
+
+    match = re.search(
+        r"\bAT(?:[\s-]*\d){18}\b",
+        value,
+        flags=re.IGNORECASE,
+    )
+
+    if match is None:
         return None
 
     normalized_iban = re.sub(
         r"[^A-Z0-9]",
         "",
-        value.upper(),
+        match.group(0).upper(),
     )
-
-    if not re.fullmatch(
-        r"AT\d{18}",
-        normalized_iban,
-    ):
-        return None
 
     return normalized_iban
 
+def normalize_bic(
+    value: str | None,
+) -> str | None:
+
+    if value is None:
+        return None
+
+    bic_match = re.search(
+        r"\b[A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b",
+        value.upper(),
+    )
+
+    if bic_match is None:
+        return None
+
+    return bic_match.group(0)
+
+
+def normalize_email(
+    value: str | None,
+) -> str | None:
+    
+    if value is None:
+        return None
+
+    match = re.search(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+        value,
+        flags=re.IGNORECASE,
+    )
+
+    if match is None:
+        return None
+
+    return match.group(0).lower()
+
+
+def normalize_phone(
+    value: str | None,
+) -> str | None:
+
+    if value is None:
+        return None
+
+    match = re.search(
+        r"\+43(?:[\s-]*\d){7,14}",
+        value,
+    )
+
+    if match is None:
+        return None
+
+    phone = re.sub(
+        r"\s+",
+        " ",
+        match.group(0),
+    )
+
+    return phone.strip()
 
 def extract_credit_application_fields(
     text: str,
 ) -> CreditApplicationFields:
-    """
-    Extract the initial five structured fields from document text.
-    """
 
     if not text.strip():
-        raise FieldExtractionError(
-            "The extracted document text is empty."
-        )
+        raise FieldExtractionError("The extracted document text is empty.")
 
-    normalized_text = normalize_document_text(
-        text
-    )
+    normalized_text = normalize_document_text(text)
 
-    full_name = extract_value_between_labels(
-        text=normalized_text,
-        start_label="Full name",
-        end_labels=[
-            "Date of birth",
-        ],
-    )
+    raw_fields = extract_raw_fields(normalized_text)
 
-    salary_text = extract_value_between_labels(
-        text=normalized_text,
-        start_label="Net monthly salary",
-        end_labels=[
-            "Other monthly income",
-        ],
-    )
+    parsed_fields: dict[str, object] = {}
 
-    loan_amount_text = extract_value_between_labels(
-        text=normalized_text,
-        start_label="Requested loan amount",
-        end_labels=[
-            "Loan purpose",
-        ],
-    )
+    for field_name in FIELD_LABELS:
+        raw_value = raw_fields.get(field_name)
 
-    iban_text = extract_value_between_labels(
-        text=normalized_text,
-        start_label="IBAN",
-        end_labels=[
-            "BIC / SWIFT",
-            "BIC",
-        ],
-    )
+        if field_name in MONEY_FIELDS:
+            parsed_fields[field_name] = (
+                parse_money(
+                    raw_value
+                )
+            )
 
-    credit_card_text = extract_value_between_labels(
-        text=normalized_text,
-        start_label="Credit card balance",
-        end_labels=[
-            "7. Supporting Documents Submitted",
-            "Supporting Documents Submitted",
-            "7. Supporting Documents",
-            "Supporting Documents",
-        ],
-    )
+        elif field_name in INTEGER_FIELDS:
+            parsed_fields[field_name] = (
+                parse_integer(
+                    raw_value
+                )
+            )
 
-    return CreditApplicationFields(
-        full_name=full_name,
-        net_monthly_salary=parse_money(
-            salary_text
-        ),
-        requested_loan_amount=parse_money(
-            loan_amount_text
-        ),
-        iban=normalize_austrian_iban(
-            iban_text
-        ),
-        credit_card_balance=parse_money(
-            credit_card_text
-        ),
-    )
+        elif field_name == "iban":
+            parsed_fields[field_name] = (
+                normalize_iban(
+                    raw_value
+                )
+            )
+
+        elif field_name == "bic":
+            parsed_fields[field_name] = (
+                normalize_bic(
+                    raw_value
+                )
+            )
+
+        elif field_name == "email":
+            parsed_fields[field_name] = (
+                normalize_email(
+                    raw_value
+                )
+            )
+
+        elif field_name == "phone":
+            parsed_fields[field_name] = (
+                normalize_phone(
+                    raw_value
+                )
+            )
+
+        else:
+            parsed_fields[field_name] = (
+                raw_value.strip()
+                if raw_value
+                else None
+            )
+
+    return CreditApplicationFields(**parsed_fields)
