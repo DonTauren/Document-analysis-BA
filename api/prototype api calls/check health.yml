@@ -1,0 +1,14 @@
+info:
+  name: check health
+  type: http
+
+http:
+  method: GET
+  url: 127.0.0.1:8000/health
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -5,9 +5,11 @@ from uuid import uuid4
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
+from time import perf_counter
 
 from app.services.file_validation import detect_file_type
 from app.services.text_extraction import extract_document_text, TextExtractionError, NoTextFoundError
+from app.services.field_extraction import CreditApplicationFields, FieldExtractionError, extract_credit_application_fields
 
 
 app = FastAPI(
@@ -36,15 +38,7 @@ CONTENT_TYPES_BY_EXTENSION = {
 }
 
 
-# defines the structure of a successful upload response
-class UploadResponse(BaseModel): 
-    document_id: str
-    status: str
-    original_filename: str
-    stored_filename: str
-    content_type: str
-    file_size_bytes: int
-
+# defines the structure of a successful upload response, for debugging purposes remaining
 class TextExtractionResponse(BaseModel):
     document_id: str
     status: str
@@ -56,6 +50,21 @@ class TextExtractionResponse(BaseModel):
         "hybrid"
     ]
     page_count: int
+    extraction_time_seconds: float
+    total_time_seconds: float
+
+class DocumentProcessingResponse(BaseModel):
+    document_id: str
+    extraction_method: Literal[
+        "embedded_text",
+        "ocr",
+        "hybrid"
+    ]
+    page_count: int
+    processing_time_seconds: float
+    fields: CreditApplicationFields
+    # debugging purposes
+    raw_text: str
 
 
 @app.get("/health")
@@ -68,7 +77,7 @@ async def health_check() -> dict[str, str | int]:
 
 @app.post(
     "/documents/process",
-    response_model=TextExtractionResponse,
+    response_model=DocumentProcessingResponse,
     status_code=200,
 )
 async def process_document(
@@ -76,7 +85,7 @@ async def process_document(
         UploadFile,
         File(description="PDF, JPEG or PNG credit application document"),
     ],
-) -> TextExtractionResponse:
+) -> DocumentProcessingResponse:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         await file.close()
 
@@ -126,15 +135,34 @@ async def process_document(
     destination = UPLOAD_DIRECTORY / stored_filename
 
     try:
+        start_total = perf_counter()
+        save_start = perf_counter()
+
         await run_in_threadpool(
             destination.write_bytes,
             content
         )
-        result = await run_in_threadpool(
+
+        save_duration = perf_counter() - save_start
+        extraction_start = perf_counter()
+
+        text_result = await run_in_threadpool(
             extract_document_text,
             destination, 
             detected_type.content_type
         )
+
+        fields = await run_in_threadpool(
+            extract_credit_application_fields,
+            text_result.text
+        )
+
+        extraction_duration = (perf_counter() - extraction_start)
+        total_duration = (perf_counter() - start_total)
+
+        print(f"Save duration: {save_duration:.2f} seconds")
+        print(f"Extraction duration: {extraction_duration:.2f} seconds")
+        print(f"Total duration: {total_duration:.2f} seconds")
 
     except NoTextFoundError as error:
         raise HTTPException(
@@ -155,11 +183,11 @@ async def process_document(
     finally:
         await file.close()
 
-    return TextExtractionResponse(
+    return DocumentProcessingResponse(
         document_id=document_id,
-        status="extracted",
-        text=result.text,
-        character_count=len(result.text),
-        extraction_method=result.method,
-        page_count=result.page_count
+        extraction_method=text_result.method,
+        page_count=text_result.page_count,
+        processing_time_seconds=round(extraction_duration, 3),
+        fields=fields,
+        raw_text=text_result.text
     )
