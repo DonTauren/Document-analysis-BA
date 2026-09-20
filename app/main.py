@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Literal
 from uuid import uuid4
+import time
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -10,6 +11,7 @@ from time import perf_counter
 from app.services.file_validation import detect_file_type
 from app.services.text_extraction import extract_document_text, TextExtractionError, NoTextFoundError
 from app.services.field_extraction import CreditApplicationFields, FieldExtractionError, extract_credit_application_fields
+from app.services.signature_detection import (has_handwritten_signature,)
 
 
 app = FastAPI(
@@ -39,7 +41,11 @@ class DocumentProcessingResponse(BaseModel):
     ]
     page_count: int
     processing_time_seconds: float
+    text_extraction_time_seconds: float
+    field_extraction_time_seconds: float
+    signature_detection_time_seconds: float
     fields: CreditApplicationFields
+    signature_present: bool
     # debugging purposes
     raw_text: str
 
@@ -111,16 +117,13 @@ async def process_document(
     stored_filename = f"{document_id}{detected_type.extension}"
     destination = UPLOAD_DIRECTORY / stored_filename
 
-    try:
-        start_total = perf_counter()
-        save_start = perf_counter()
-
+    try:        
         await run_in_threadpool(
             destination.write_bytes,
             content
         )
 
-        save_duration = perf_counter() - save_start
+        start_total = perf_counter()
         extraction_start = perf_counter()
 
         text_result = await run_in_threadpool(
@@ -129,16 +132,31 @@ async def process_document(
             detected_type.content_type
         )
 
+        extraction_duration = (perf_counter() - extraction_start)
+
+        field_start = perf_counter()
+        
         fields = await run_in_threadpool(
             extract_credit_application_fields,
             text_result.text
         )
 
-        extraction_duration = (perf_counter() - extraction_start)
+        field_duration = perf_counter() - field_start
+
+        signature_start = perf_counter()
+
+        signature_present = await run_in_threadpool(
+            has_handwritten_signature,
+            destination
+        )
+
+        signature_duration = perf_counter() - signature_start
+
         total_duration = (perf_counter() - start_total)
 
-        print(f"Save duration: {save_duration:.2f} seconds")
-        print(f"Extraction duration: {extraction_duration:.2f} seconds")
+        print(f"Text extraction: {extraction_duration:.2f} seconds")
+        print(f"Field extraction: {field_duration:.4f} seconds")
+        print(f"Signature detection: {signature_duration:.4f} seconds")
         print(f"Total duration: {total_duration:.2f} seconds")
 
     except NoTextFoundError as error:
@@ -166,10 +184,14 @@ async def process_document(
         await file.close()
 
     return DocumentProcessingResponse(
-        document_id=document_id,
-        extraction_method=text_result.method,
-        page_count=text_result.page_count,
-        processing_time_seconds=round(total_duration, 3),
-        fields=fields,
-        raw_text=text_result.text
+        document_id = document_id,
+        extraction_method = text_result.method,
+        page_count = text_result.page_count,
+        processing_time_seconds = round(total_duration, 3),
+        text_extraction_time_seconds = round(extraction_duration, 3),
+        field_extraction_time_seconds = round(field_duration, 3),
+        signature_detection_time_seconds = round(signature_duration, 3),
+        fields = fields,
+        signature_present = signature_present,
+        raw_text = text_result.text
     )

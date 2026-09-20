@@ -109,9 +109,9 @@ FIELD_LABELS: Final[dict[str, list[str]]] = {
 
     "iban": ["IBAN"],
     "bic": ["BIC / SWIFT", "BIC/SWIFT", "BIC"],
-    "average_account_balance": ["Average account balance (3 months)", "Average balance (3 months)"],
+    "average_account_balance": ["Average account balance (3 months)", "Average balance (3 months)", "Average account balance, previous 3 months"],
 
-    "outstanding_personal_loan": ["Existing personal loan - outstanding", "Existing personal loan outstanding"],
+    "outstanding_personal_loan": ["Existing personal loan - outstanding", "Existing personal loan outstanding", "Existing personal loan"],
     "credit_card_balance": ["Credit card balance"],
 }
 
@@ -333,6 +333,24 @@ def parse_integer(
 
     return int(match.group(0))
 
+def normalize_preferred_payment_date(
+    value: str | None,
+) -> str | None:
+    if value is None:
+        return None
+
+    match = re.search(
+        r"\b(?:[1-9]|[12]\d|3[01])"
+        r"(?:st|nd|rd|th)"
+        r"\s+day of each month\b",
+        value,
+        flags=re.IGNORECASE,
+    )
+
+    if match is None:
+        return None
+
+    return match.group(0)
 
 def normalize_iban(
     value: str | None,
@@ -471,6 +489,13 @@ def extract_credit_application_fields(
         elif field_name == "phone":
             parsed_fields[field_name] = (
                 normalize_phone(
+                    raw_value
+                )
+            )
+
+        elif field_name == "preferred_payment_date":
+            parsed_fields[field_name] = (
+                normalize_preferred_payment_date(
                     raw_value
                 )
             )

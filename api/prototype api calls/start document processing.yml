@@ -10,9 +10,8 @@ http:
     type: multipart-form
     data:
       - name: file
-        type: file
-        value:
-          - c:\Users\phili\Documents\Academics\FH Technikum\Bachelorarbeit\prototype\Document-analysis-BA\api\prototype api calls\credit_application_04_scanned.pdf
+        type: text
+        value: ""
   auth: inherit
 
 settings:
