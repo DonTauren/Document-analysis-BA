@@ -164,5 +164,5 @@ __marimo__/
 uploads/*
 !uploads/.gitkeep
 
-experiment_files/*
+#experiment_files/*
 test_files/*

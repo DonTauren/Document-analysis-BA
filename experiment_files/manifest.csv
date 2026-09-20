@@ -1,0 +1,33 @@
+file,base_case_id,person,document_type,completeness,signature_present,missing_field_count,missing_fields,manual_test_selected,paired_file,application_reference,page_count
+CS01_digital_anna_berger.pdf,CS01,Anna Berger,digital,complete,True,0,,True,CS01_scanned_anna_berger.pdf,CA-2026-0920-0001,4
+CS01_scanned_anna_berger.pdf,CS01,Anna Berger,scanned,complete,True,0,,False,CS01_digital_anna_berger.pdf,CA-2026-0920-0001,4
+CS02_digital_lukas_gruber.pdf,CS02,Lukas Gruber,digital,complete,True,0,,True,CS02_scanned_lukas_gruber.pdf,CA-2026-0920-0002,4
+CS02_scanned_lukas_gruber.pdf,CS02,Lukas Gruber,scanned,complete,True,0,,False,CS02_digital_lukas_gruber.pdf,CA-2026-0920-0002,4
+CS03_digital_sophie_leitner.pdf,CS03,Sophie Leitner,digital,complete,True,0,,False,CS03_scanned_sophie_leitner.pdf,CA-2026-0920-0003,4
+CS03_scanned_sophie_leitner.pdf,CS03,Sophie Leitner,scanned,complete,True,0,,True,CS03_digital_sophie_leitner.pdf,CA-2026-0920-0003,4
+CS04_digital_daniel_hofer.pdf,CS04,Daniel Hofer,digital,complete,True,0,,False,CS04_scanned_daniel_hofer.pdf,CA-2026-0920-0004,4
+CS04_scanned_daniel_hofer.pdf,CS04,Daniel Hofer,scanned,complete,True,0,,True,CS04_digital_daniel_hofer.pdf,CA-2026-0920-0004,4
+CU01_digital_emilia_novak.pdf,CU01,Emilia Novak,digital,complete,False,0,,False,CU01_scanned_emilia_novak.pdf,CA-2026-0920-0005,4
+CU01_scanned_emilia_novak.pdf,CU01,Emilia Novak,scanned,complete,False,0,,True,CU01_digital_emilia_novak.pdf,CA-2026-0920-0005,4
+CU02_digital_tobias_steiner.pdf,CU02,Tobias Steiner,digital,complete,False,0,,False,CU02_scanned_tobias_steiner.pdf,CA-2026-0920-0006,4
+CU02_scanned_tobias_steiner.pdf,CU02,Tobias Steiner,scanned,complete,False,0,,True,CU02_digital_tobias_steiner.pdf,CA-2026-0920-0006,4
+CU03_digital_laura_bauer.pdf,CU03,Laura Bauer,digital,complete,False,0,,True,CU03_scanned_laura_bauer.pdf,CA-2026-0920-0007,4
+CU03_scanned_laura_bauer.pdf,CU03,Laura Bauer,scanned,complete,False,0,,False,CU03_digital_laura_bauer.pdf,CA-2026-0920-0007,4
+CU04_digital_david_moser.pdf,CU04,David Moser,digital,complete,False,0,,True,CU04_scanned_david_moser.pdf,CA-2026-0920-0008,4
+CU04_scanned_david_moser.pdf,CU04,David Moser,scanned,complete,False,0,,False,CU04_digital_david_moser.pdf,CA-2026-0920-0008,4
+IS01_digital_nina_koller.pdf,IS01,Nina Koller,digital,incomplete,True,1,phone,True,IS01_scanned_nina_koller.pdf,CA-2026-0920-0009,4
+IS01_scanned_nina_koller.pdf,IS01,Nina Koller,scanned,incomplete,True,1,phone,False,IS01_digital_nina_koller.pdf,CA-2026-0920-0009,4
+IS02_digital_markus_fuchs.pdf,IS02,Markus Fuchs,digital,incomplete,True,2,employer; other_monthly_income,False,IS02_scanned_markus_fuchs.pdf,CA-2026-0920-0010,4
+IS02_scanned_markus_fuchs.pdf,IS02,Markus Fuchs,scanned,incomplete,True,2,employer; other_monthly_income,True,IS02_digital_markus_fuchs.pdf,CA-2026-0920-0010,4
+IS03_digital_selma_kovac.pdf,IS03,Selma Kovac,digital,incomplete,True,4,date_of_birth; loan_purpose; bic; credit_card_balance,False,IS03_scanned_selma_kovac.pdf,CA-2026-0920-0011,4
+IS03_scanned_selma_kovac.pdf,IS03,Selma Kovac,scanned,incomplete,True,4,date_of_birth; loan_purpose; bic; credit_card_balance,True,IS03_digital_selma_kovac.pdf,CA-2026-0920-0011,4
+IS04_digital_felix_wagner.pdf,IS04,Felix Wagner,digital,incomplete,True,5,residential_address; employment_since; net_monthly_salary; preferred_payment_date; average_account_balance,True,IS04_scanned_felix_wagner.pdf,CA-2026-0920-0012,4
+IS04_scanned_felix_wagner.pdf,IS04,Felix Wagner,scanned,incomplete,True,5,residential_address; employment_since; net_monthly_salary; preferred_payment_date; average_account_balance,False,IS04_digital_felix_wagner.pdf,CA-2026-0920-0012,4
+IU01_digital_johanna_ebner.pdf,IU01,Johanna Ebner,digital,incomplete,False,1,phone,False,IU01_scanned_johanna_ebner.pdf,CA-2026-0920-0013,4
+IU01_scanned_johanna_ebner.pdf,IU01,Johanna Ebner,scanned,incomplete,False,1,phone,True,IU01_digital_johanna_ebner.pdf,CA-2026-0920-0013,4
+IU02_digital_stefan_auer.pdf,IU02,Stefan Auer,digital,incomplete,False,2,employer; other_monthly_income,True,IU02_scanned_stefan_auer.pdf,CA-2026-0920-0014,4
+IU02_scanned_stefan_auer.pdf,IU02,Stefan Auer,scanned,incomplete,False,2,employer; other_monthly_income,False,IU02_digital_stefan_auer.pdf,CA-2026-0920-0014,4
+IU03_digital_mira_petrovic.pdf,IU03,Mira Petrovic,digital,incomplete,False,4,date_of_birth; loan_purpose; bic; credit_card_balance,True,IU03_scanned_mira_petrovic.pdf,CA-2026-0920-0015,4
+IU03_scanned_mira_petrovic.pdf,IU03,Mira Petrovic,scanned,incomplete,False,4,date_of_birth; loan_purpose; bic; credit_card_balance,False,IU03_digital_mira_petrovic.pdf,CA-2026-0920-0015,4
+IU04_digital_elias_winkler.pdf,IU04,Elias Winkler,digital,incomplete,False,5,residential_address; employment_since; net_monthly_salary; preferred_payment_date; average_account_balance,False,IU04_scanned_elias_winkler.pdf,CA-2026-0920-0016,4
+IU04_scanned_elias_winkler.pdf,IU04,Elias Winkler,scanned,incomplete,False,5,residential_address; employment_since; net_monthly_salary; preferred_payment_date; average_account_balance,True,IU04_digital_elias_winkler.pdf,CA-2026-0920-0016,4
