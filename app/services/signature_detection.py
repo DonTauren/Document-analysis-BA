@@ -5,9 +5,6 @@ import numpy as np
 import pymupdf
 
 
-# Bereich auf der letzten Seite:
-# links, oben, rechts, unten
-# Werte liegen zwischen 0.0 und 1.0.
 SIGNATURE_REGION = (
     0.13,
     0.81,

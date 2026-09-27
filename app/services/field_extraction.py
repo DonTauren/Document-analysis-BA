@@ -109,9 +109,11 @@ FIELD_LABELS: Final[dict[str, list[str]]] = {
 
     "iban": ["IBAN"],
     "bic": ["BIC / SWIFT", "BIC/SWIFT", "BIC"],
-    "average_account_balance": ["Average account balance (3 months)", "Average balance (3 months)", "Average account balance, previous 3 months"],
+    "average_account_balance": ["Average account balance (3 months)", "Average balance (3 months)", 
+                                "Average account balance, previous 3 months"],
 
-    "outstanding_personal_loan": ["Existing personal loan - outstanding", "Existing personal loan outstanding", "Existing personal loan"],
+    "outstanding_personal_loan": ["Existing personal loan - outstanding", "Existing personal loan outstanding", 
+                                  "Existing personal loan"],
     "credit_card_balance": ["Credit card balance"],
 }
 
