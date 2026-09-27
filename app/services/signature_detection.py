@@ -10,9 +10,9 @@ import pymupdf
 # Werte liegen zwischen 0.0 und 1.0.
 SIGNATURE_REGION = (
     0.13,
-    0.812,
+    0.81,
     0.40,
-    0.87,
+    0.86,
 )
 
 

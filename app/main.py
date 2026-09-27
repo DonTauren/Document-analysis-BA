@@ -47,7 +47,7 @@ class DocumentProcessingResponse(BaseModel):
     fields: CreditApplicationFields
     signature_present: bool
     # debugging purposes
-    raw_text: str
+    # raw_text: str
 
 
 @app.get("/health")
